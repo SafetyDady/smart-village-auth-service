@@ -8,7 +8,7 @@ load_dotenv()
 # DON'T CHANGE THIS !!!
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from src.models.user import db, User, Village, House
@@ -16,20 +16,18 @@ from src.routes.auth import auth_bp
 from src.routes.user_management import user_bp
 from src.routes.admin_homeowner_village import admin_bp, homeowner_bp, village_house_bp
 
-app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
+app = Flask(__name__)
 
 # Configuration from environment variables
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'dev-jwt-secret-key-change-in-production')
 
-# Database configuration
+# Database configuration for Vercel
 database_url = os.getenv('DATABASE_URL', 'sqlite:///social_auth.db')
 if database_url.startswith('sqlite:///') and not database_url.startswith('sqlite:////'):
-    # Convert relative path to absolute path for SQLite
-    db_path = database_url.replace('sqlite:///', '')
-    if not os.path.isabs(db_path):
-        db_path = os.path.join(os.path.dirname(__file__), 'database', db_path)
-        database_url = f'sqlite:///{db_path}'
+    # For Vercel, use /tmp directory for SQLite
+    db_path = '/tmp/social_auth.db'
+    database_url = f'sqlite:///{db_path}'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -38,9 +36,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 jwt = JWTManager(app)
 
-# CORS configuration
-cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000,http://localhost:8080').split(',')
-CORS(app, origins=cors_origins)
+# CORS configuration for Vercel
+CORS(app, origins=['*'])  # Allow all origins for now
 
 # Register blueprints
 app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -49,13 +46,33 @@ app.register_blueprint(admin_bp, url_prefix='/api/admin')
 app.register_blueprint(homeowner_bp, url_prefix='/api/homeowner')
 app.register_blueprint(village_house_bp, url_prefix='/api/village-house')
 
+# Health check endpoint
+@app.route('/api/health')
+def health_check():
+    return jsonify({
+        'status': 'healthy',
+        'service': 'Smart Village Auth Service',
+        'version': '1.0.0'
+    })
+
+# Root endpoint
+@app.route('/')
+def root():
+    return jsonify({
+        'message': 'Smart Village Social Auth Service',
+        'status': 'running',
+        'endpoints': {
+            'health': '/api/health',
+            'auth': '/api/auth/*',
+            'user': '/api/user/*',
+            'admin': '/api/admin/*',
+            'homeowner': '/api/homeowner/*',
+            'village-house': '/api/village-house/*'
+        }
+    })
+
 # Create database tables
 with app.app_context():
-    # Create database directory if it doesn't exist
-    db_dir = os.path.dirname(database_url.replace('sqlite:///', ''))
-    if db_dir and not os.path.exists(db_dir):
-        os.makedirs(db_dir)
-    
     db.create_all()
     
     # Create super admin if not exists
@@ -72,24 +89,11 @@ with app.app_context():
             )
             db.session.add(super_admin)
             db.session.commit()
-            print(f"Super admin created with email: {super_admin_email}")
 
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve(path):
-    static_folder_path = app.static_folder
-    if static_folder_path is None:
-            return "Static folder not configured", 404
-
-    if path != "" and os.path.exists(os.path.join(static_folder_path, path)):
-        return send_from_directory(static_folder_path, path)
-    else:
-        index_path = os.path.join(static_folder_path, 'index.html')
-        if os.path.exists(index_path):
-            return send_from_directory(static_folder_path, 'index.html')
-        else:
-            return "index.html not found", 404
-
+# Vercel handler
+def handler(request):
+    return app(request.environ, lambda status, headers: None)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    app.run(host="0.0.0.0", port=5002, debug=True)
+

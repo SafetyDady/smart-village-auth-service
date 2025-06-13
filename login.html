@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Village - Social Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .login-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 1.8rem;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+        
+        .login-methods {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .login-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            gap: 10px;
+        }
+        
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-line {
+            background: #00B900;
+            color: white;
+        }
+        
+        .btn-google {
+            background: #4285F4;
+            color: white;
+        }
+        
+        .btn-facebook {
+            background: #1877F2;
+            color: white;
+        }
+        
+        .btn-email {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .divider {
+            margin: 1.5rem 0;
+            position: relative;
+            text-align: center;
+        }
+        
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #ddd;
+        }
+        
+        .divider span {
+            background: white;
+            padding: 0 1rem;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .status {
+            margin-top: 1rem;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .email-form {
+            display: none;
+            text-align: left;
+            margin-top: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+        
+        .back-btn {
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+        }
+        
+        .back-btn:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">SV</div>
+        <h1>Smart Village</h1>
+        <p class="subtitle">เข้าสู่ระบบจัดการหมู่บ้านอัจฉริยะ</p>
+        
+        <div id="social-login" class="login-methods">
+            <a href="#" class="login-btn btn-line" onclick="loginWithLINE()">
+                <span>📱</span> เข้าสู่ระบบด้วย LINE
+            </a>
+            
+            <a href="#" class="login-btn btn-google" onclick="loginWithGoogle()">
+                <span>🔍</span> เข้าสู่ระบบด้วย Google
+            </a>
+            
+            <a href="#" class="login-btn btn-facebook" onclick="loginWithFacebook()">
+                <span>📘</span> เข้าสู่ระบบด้วย Facebook
+            </a>
+            
+            <div class="divider">
+                <span>หรือ</span>
+            </div>
+            
+            <a href="#" class="login-btn btn-email" onclick="showEmailForm()">
+                <span>✉️</span> เข้าสู่ระบบด้วย Email
+            </a>
+        </div>
+        
+        <div id="email-form" class="email-form">
+            <div class="form-group">
+                <label for="email">อีเมล</label>
+                <input type="email" id="email" placeholder="กรอกอีเมลของคุณ" required>
+            </div>
+            <div class="form-group">
+                <label for="password">รหัสผ่าน</label>
+                <input type="password" id="password" placeholder="กรอกรหัสผ่าน" required>
+            </div>
+            <button class="login-btn btn-email" onclick="loginWithEmail()" style="width: 100%;">
+                เข้าสู่ระบบ
+            </button>
+            <button class="back-btn" onclick="showSocialLogin()">
+                ← กลับไปเลือกวิธีเข้าสู่ระบบ
+            </button>
+        </div>
+        
+        <div id="status" class="status" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'https://5002-i7taedjo5kejekakwd5s5-331054fa.manusvm.computer/api';
+        
+        function showStatus(message, type = 'success') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        function showEmailForm() {
+            document.getElementById('social-login').style.display = 'none';
+            document.getElementById('email-form').style.display = 'block';
+        }
+        
+        function showSocialLogin() {
+            document.getElementById('social-login').style.display = 'block';
+            document.getElementById('email-form').style.display = 'none';
+        }
+        
+        async function loginWithLINE() {
+            showStatus('กำลังเชื่อมต่อกับ LINE...', 'success');
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/line/login`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.auth_url) {
+                        window.location.href = data.auth_url;
+                    } else {
+                        showStatus('ไม่สามารถเชื่อมต่อกับ LINE ได้', 'error');
+                    }
+                } else {
+                    showStatus('เกิดข้อผิดพลาดในการเชื่อมต่อ LINE', 'error');
+                }
+            } catch (error) {
+                showStatus('เกิดข้อผิดพลาด: ' + error.message, 'error');
+            }
+        }
+        
+        async function loginWithGoogle() {
+            showStatus('กำลังเชื่อมต่อกับ Google...', 'success');
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/google/login`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.auth_url) {
+                        window.location.href = data.auth_url;
+                    } else {
+                        showStatus('ไม่สามารถเชื่อมต่อกับ Google ได้', 'error');
+                    }
+                } else {
+                    showStatus('เกิดข้อผิดพลาดในการเชื่อมต่อ Google', 'error');
+                }
+            } catch (error) {
+                showStatus('เกิดข้อผิดพลาด: ' + error.message, 'error');
+            }
+        }
+        
+        async function loginWithFacebook() {
+            showStatus('กำลังเชื่อมต่อกับ Facebook...', 'success');
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/facebook/login`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.auth_url) {
+                        window.location.href = data.auth_url;
+                    } else {
+                        showStatus('ไม่สามารถเชื่อมต่อกับ Facebook ได้', 'error');
+                    }
+                } else {
+                    showStatus('เกิดข้อผิดพลาดในการเชื่อมต่อ Facebook', 'error');
+                }
+            } catch (error) {
+                showStatus('เกิดข้อผิดพลาด: ' + error.message, 'error');
+            }
+        }
+        
+        async function loginWithEmail() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showStatus('กรุณากรอกอีเมลและรหัสผ่าน', 'error');
+                return;
+            }
+            
+            showStatus('กำลังเข้าสู่ระบบ...', 'success');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/email/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showStatus('เข้าสู่ระบบสำเร็จ!', 'success');
+                    
+                    // เก็บ token
+                    if (data.access_token) {
+                        localStorage.setItem('access_token', data.access_token);
+                    }
+                    
+                    // Redirect ตาม role
+                    setTimeout(() => {
+                        if (data.redirect_to) {
+                            window.location.href = data.redirect_to;
+                        } else {
+                            window.location.href = '/dashboard';
+                        }
+                    }, 1500);
+                } else {
+                    showStatus(data.message || 'เข้าสู่ระบบไม่สำเร็จ', 'error');
+                }
+            } catch (error) {
+                showStatus('เกิดข้อผิดพลาด: ' + error.message, 'error');
+            }
+        }
+        
+        // ตรวจสอบ URL parameters สำหรับ callback
+        window.addEventListener('load', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            const success = urlParams.get('success');
+            
+            if (error) {
+                showStatus('เกิดข้อผิดพลาด: ' + decodeURIComponent(error), 'error');
+            } else if (success) {
+                showStatus('เข้าสู่ระบบสำเร็จ!', 'success');
+            }
+        });
+    </script>
+</body>
+</html>
+
