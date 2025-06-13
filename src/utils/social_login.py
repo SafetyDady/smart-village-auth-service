@@ -151,3 +151,104 @@ class SocialLoginHandler:
         else:
             return None
 
+
+    @staticmethod
+    def get_google_auth_url():
+        """
+        Generate Google OAuth authorization URL
+        """
+        try:
+            from urllib.parse import urlencode
+            
+            base_url = "https://accounts.google.com/o/oauth2/auth"
+            params = {
+                'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+                'redirect_uri': f"{os.getenv('BASE_URL', 'https://smart-village-auth-service.vercel.app')}/api/auth/google/callback",
+                'scope': 'openid email profile',
+                'response_type': 'code',
+                'access_type': 'offline',
+                'prompt': 'consent'
+            }
+            
+            auth_url = f"{base_url}?{urlencode(params)}"
+            return auth_url
+            
+        except Exception as e:
+            current_app.logger.error(f"Failed to generate Google auth URL: {e}")
+            return None
+    
+    @staticmethod
+    def get_line_auth_url():
+        """
+        Generate LINE OAuth authorization URL
+        """
+        try:
+            from urllib.parse import urlencode
+            
+            base_url = "https://access.line.me/oauth2/v2.1/authorize"
+            params = {
+                'response_type': 'code',
+                'client_id': os.getenv('LINE_CLIENT_ID'),
+                'redirect_uri': f"{os.getenv('BASE_URL', 'https://smart-village-auth-service.vercel.app')}/api/auth/line/callback",
+                'scope': 'profile openid email',
+                'state': 'random_state_string'
+            }
+            
+            auth_url = f"{base_url}?{urlencode(params)}"
+            return auth_url
+            
+        except Exception as e:
+            current_app.logger.error(f"Failed to generate LINE auth URL: {e}")
+            return None
+    
+    @staticmethod
+    def get_facebook_auth_url():
+        """
+        Generate Facebook OAuth authorization URL
+        """
+        try:
+            from urllib.parse import urlencode
+            
+            base_url = "https://www.facebook.com/v18.0/dialog/oauth"
+            params = {
+                'client_id': os.getenv('FACEBOOK_APP_ID'),
+                'redirect_uri': f"{os.getenv('BASE_URL', 'https://smart-village-auth-service.vercel.app')}/api/auth/facebook/callback",
+                'scope': 'email,public_profile',
+                'response_type': 'code'
+            }
+            
+            auth_url = f"{base_url}?{urlencode(params)}"
+            return auth_url
+            
+        except Exception as e:
+            current_app.logger.error(f"Failed to generate Facebook auth URL: {e}")
+            return None
+    
+    @staticmethod
+    def exchange_google_code_for_token(code):
+        """
+        Exchange Google authorization code for access token
+        """
+        try:
+            token_url = "https://oauth2.googleapis.com/token"
+            data = {
+                'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+                'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
+                'code': code,
+                'grant_type': 'authorization_code',
+                'redirect_uri': f"{os.getenv('BASE_URL', 'https://smart-village-auth-service.vercel.app')}/api/auth/google/callback"
+            }
+            
+            response = requests.post(token_url, data=data)
+            
+            if response.status_code == 200:
+                token_data = response.json()
+                return token_data.get('id_token')  # Return ID token for verification
+            else:
+                current_app.logger.error(f"Failed to exchange Google code: {response.text}")
+                return None
+                
+        except Exception as e:
+            current_app.logger.error(f"Google code exchange failed: {e}")
+            return None
+
