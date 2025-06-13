@@ -203,3 +203,178 @@ def refresh_token():
     # TODO: Implement token refresh logic
     return jsonify({"message": "Token refreshed successfully"}), 200
 
+# Google OAuth specific endpoints
+@auth_bp.route("/google/login", methods=["GET", "POST"])
+def google_login():
+    """
+    Handle Google OAuth login
+    GET: Redirect to Google OAuth
+    POST: Handle Google token from frontend
+    """
+    if request.method == "GET":
+        # Redirect to Google OAuth (for server-side flow)
+        from src.utils.social_login import SocialLoginHandler
+        auth_url = SocialLoginHandler.get_google_auth_url()
+        return jsonify({"auth_url": auth_url}), 200
+    
+    elif request.method == "POST":
+        # Handle Google token from frontend (client-side flow)
+        data = request.get_json()
+        
+        if not data or 'token' not in data:
+            return jsonify({"message": "Google token is required"}), 400
+        
+        token = data['token']
+        
+        # Use existing social_login logic with Google provider
+        return handle_social_login_internal(token, 'google')
+
+@auth_bp.route("/google/callback", methods=["GET"])
+def google_callback():
+    """Handle Google OAuth callback"""
+    code = request.args.get('code')
+    if not code:
+        return jsonify({"message": "Authorization code is required"}), 400
+    
+    # Exchange code for token and handle login
+    from src.utils.social_login import SocialLoginHandler
+    token = SocialLoginHandler.exchange_google_code_for_token(code)
+    
+    if not token:
+        return jsonify({"message": "Failed to exchange code for token"}), 400
+    
+    return handle_social_login_internal(token, 'google')
+
+# LINE OAuth specific endpoints  
+@auth_bp.route("/line/login", methods=["GET", "POST"])
+def line_login():
+    """Handle LINE OAuth login"""
+    if request.method == "GET":
+        from src.utils.social_login import SocialLoginHandler
+        auth_url = SocialLoginHandler.get_line_auth_url()
+        return jsonify({"auth_url": auth_url}), 200
+    
+    elif request.method == "POST":
+        data = request.get_json()
+        if not data or 'token' not in data:
+            return jsonify({"message": "LINE token is required"}), 400
+        
+        return handle_social_login_internal(data['token'], 'line')
+
+# Facebook OAuth specific endpoints
+@auth_bp.route("/facebook/login", methods=["GET", "POST"])  
+def facebook_login():
+    """Handle Facebook OAuth login"""
+    if request.method == "GET":
+        from src.utils.social_login import SocialLoginHandler
+        auth_url = SocialLoginHandler.get_facebook_auth_url()
+        return jsonify({"auth_url": auth_url}), 200
+    
+    elif request.method == "POST":
+        data = request.get_json()
+        if not data or 'token' not in data:
+            return jsonify({"message": "Facebook token is required"}), 400
+        
+        return handle_social_login_internal(data['token'], 'facebook')
+
+def handle_social_login_internal(token, provider):
+    """Internal function to handle social login logic"""
+    # Verify token and get user info from social provider
+    user_info = SocialLoginHandler.get_user_info_from_token(token, provider)
+    
+    if not user_info:
+        return jsonify({"message": "Invalid token or failed to verify"}), 401
+    
+    # Check if user exists
+    user = User.query.filter_by(
+        social_id=user_info['social_id'], 
+        social_provider=provider
+    ).first()
+    
+    # Check for super admin
+    super_admin_email = os.getenv('SUPER_ADMIN_EMAIL')
+    super_admin_google_id = os.getenv('SUPER_ADMIN_GOOGLE_ID')
+    super_admin_line_id = os.getenv('SUPER_ADMIN_LINE_ID')
+    super_admin_facebook_id = os.getenv('SUPER_ADMIN_FACEBOOK_ID')
+    
+    is_super_admin = False
+    if (user_info.get('email') == super_admin_email or
+        (provider == 'google' and user_info['social_id'] == super_admin_google_id) or
+        (provider == 'line' and user_info['social_id'] == super_admin_line_id) or
+        (provider == 'facebook' and user_info['social_id'] == super_admin_facebook_id)):
+        is_super_admin = True
+    
+    if not user:
+        # Create new user
+        user = User(
+            social_id=user_info['social_id'],
+            social_provider=provider,
+            email=user_info.get('email'),
+            first_name=user_info.get('first_name'),
+            last_name=user_info.get('last_name'),
+            line_id=user_info.get('line_id'),
+            role='super_admin' if is_super_admin else 'household_member',
+            status='active' if is_super_admin else 'pending_details'
+        )
+        db.session.add(user)
+        db.session.commit()
+    else:
+        # Update existing user info if needed
+        if user_info.get('email') and not user.email:
+            user.email = user_info.get('email')
+        if user_info.get('first_name') and not user.first_name:
+            user.first_name = user_info.get('first_name')
+        if user_info.get('last_name') and not user.last_name:
+            user.last_name = user_info.get('last_name')
+        if user_info.get('line_id') and not user.line_id:
+            user.line_id = user_info.get('line_id')
+        
+        # Check if user should be promoted to super admin
+        if is_super_admin and user.role != 'super_admin':
+            user.role = 'super_admin'
+            user.status = 'active'
+        
+        db.session.commit()
+    
+    # Create JWT tokens
+    tokens = JWTHandler.create_tokens(user.id)
+    
+    # Determine redirect based on user status and role
+    if user.status == 'pending_details':
+        return jsonify({
+            "message": "Please complete your profile", 
+            "user": user.to_dict(), 
+            "redirect_to": "/complete-profile",
+            "tokens": tokens
+        }), 200
+    elif user.status == 'pending_homeowner_approval' or user.status == 'pending_admin_approval':
+        return jsonify({
+            "message": "Your account is pending approval", 
+            "user": user.to_dict(), 
+            "redirect_to": "/approval-status",
+            "tokens": tokens
+        }), 200
+    elif user.status == 'rejected':
+        return jsonify({
+            "message": "Your account has been rejected", 
+            "user": user.to_dict(), 
+            "redirect_to": "/rejected-status",
+            "tokens": tokens
+        }), 200
+    else:
+        # User is active, proceed to dashboard based on role
+        redirect_to = "/dashboard"
+        if user.role == 'super_admin':
+            redirect_to = "/super-admin-dashboard"
+        elif user.role == 'admin':
+            redirect_to = "/admin-dashboard"
+        elif user.role == 'homeowner':
+            redirect_to = "/homeowner-dashboard"
+        
+        return jsonify({
+            "message": "Login successful", 
+            "user": user.to_dict(), 
+            "redirect_to": redirect_to,
+            "tokens": tokens
+        }), 200
+
