@@ -18,7 +18,7 @@ const userRoutes = require('./routes/users');
 const healthRoutes = require('./routes/health');
 
 // Import middleware
-const errorHandler = require('./middleware/errorHandler');
+const { errorHandler } = require('./middleware/errorHandler');
 const authMiddleware = require('./middleware/auth');
 
 // Import database
