@@ -14,7 +14,7 @@ if (process.env.DATABASE_URL) {
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     max: 20, // maximum number of clients in the pool
     idleTimeoutMillis: 30000, // how long a client is allowed to remain idle
-    connectionTimeoutMillis: 2000, // how long to wait when connecting
+    connectionTimeoutMillis: 10000, // how long to wait when connecting
   };
 } else {
   // Fallback to individual environment variables
@@ -27,7 +27,7 @@ if (process.env.DATABASE_URL) {
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     max: 20, // maximum number of clients in the pool
     idleTimeoutMillis: 30000, // how long a client is allowed to remain idle
-    connectionTimeoutMillis: 2000, // how long to wait when connecting
+    connectionTimeoutMillis: 10000, // how long to wait when connecting
   };
 }
 
