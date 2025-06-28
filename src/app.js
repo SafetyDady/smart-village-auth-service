@@ -180,21 +180,50 @@ app.use(errorHandler);
 
 async function startServer() {
   try {
-    // Test database connection
-    await db.query('SELECT NOW()');
-    console.log('✅ Database connected successfully');
+    // Test database connection with health check
+    console.log('🔍 Testing database connection...');
+    const healthResult = await db.healthCheck();
     
-    // Start server
+    if (healthResult.status === 'connected') {
+      console.log('✅ Database connected successfully');
+      console.log(`📊 Database info:`, {
+        timestamp: healthResult.timestamp,
+        pool: healthResult.pool
+      });
+    } else {
+      console.warn('⚠️ Database connection issue:', healthResult.error);
+      console.log('🔄 Starting server anyway, will retry connections...');
+    }
+    
+    // Start server regardless of database status
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Smart Village Auth Service running on port ${PORT}`);
       console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🔗 Health check: http://localhost:${PORT}/health`);
       console.log(`🔐 Auth endpoints: http://localhost:${PORT}/auth`);
       console.log(`👥 User endpoints: http://localhost:${PORT}/users`);
+      
+      // Log environment variables for debugging (without sensitive data)
+      console.log('🔧 Environment check:');
+      console.log('  - DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
+      console.log('  - NODE_ENV:', process.env.NODE_ENV || 'development');
+      console.log('  - PORT:', PORT);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
-    process.exit(1);
+    console.log('🔄 Attempting to start server without database...');
+    
+    // Try to start server anyway
+    try {
+      app.listen(PORT, '0.0.0.0', () => {
+        console.log(`🚀 Smart Village Auth Service running on port ${PORT} (Database offline)`);
+        console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+      });
+    } catch (serverError) {
+      console.error('❌ Failed to start server completely:', serverError);
+      process.exit(1);
+    }
   }
 }
 

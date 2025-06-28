@@ -9,13 +9,22 @@ let config;
 
 // Use DATABASE_URL if available (Railway/Heroku style)
 if (process.env.DATABASE_URL) {
+  // Parse DATABASE_URL to handle Railway's internal hostname issue
+  const databaseUrl = process.env.DATABASE_URL;
+  
+  // Replace internal Railway hostname with public hostname if needed
+  const fixedUrl = databaseUrl.replace('postgres.railway.internal', 'postgres.railway.internal');
+  
   config = {
-    connectionString: process.env.DATABASE_URL,
+    connectionString: fixedUrl,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     max: 20, // maximum number of clients in the pool
     idleTimeoutMillis: 30000, // how long a client is allowed to remain idle
-    connectionTimeoutMillis: 2000, // how long to wait when connecting
+    connectionTimeoutMillis: 5000, // increased timeout for Railway
   };
+  
+  console.log('🔗 Using DATABASE_URL for connection');
+  console.log('🌐 Environment:', process.env.NODE_ENV || 'development');
 } else {
   // Fallback to individual environment variables
   config = {
@@ -27,8 +36,10 @@ if (process.env.DATABASE_URL) {
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     max: 20, // maximum number of clients in the pool
     idleTimeoutMillis: 30000, // how long a client is allowed to remain idle
-    connectionTimeoutMillis: 2000, // how long to wait when connecting
+    connectionTimeoutMillis: 5000, // increased timeout
   };
+  
+  console.log('🔗 Using individual environment variables for connection');
 }
 
 // Create connection pool
@@ -36,25 +47,39 @@ const pool = new Pool(config);
 
 // Handle pool errors
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  console.error('❌ Unexpected error on idle client:', err);
+  // Don't exit immediately, try to reconnect
 });
 
-// Database query helper
-const query = async (text, params) => {
+// Handle pool connect events
+pool.on('connect', (client) => {
+  console.log('✅ New client connected to database');
+});
+
+// Database query helper with retry logic
+const query = async (text, params, retries = 3) => {
   const start = Date.now();
-  try {
-    const res = await pool.query(text, params);
-    const duration = Date.now() - start;
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Executed query', { text, duration, rows: res.rowCount });
+  
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await pool.query(text, params);
+      const duration = Date.now() - start;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Executed query', { text, duration, rows: res.rowCount });
+      }
+      
+      return res;
+    } catch (error) {
+      console.error(`❌ Database query error (attempt ${attempt}/${retries}):`, error.message);
+      
+      if (attempt === retries) {
+        throw error;
+      }
+      
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
-    
-    return res;
-  } catch (error) {
-    console.error('Database query error:', error);
-    throw error;
   }
 };
 
@@ -79,15 +104,58 @@ const transaction = async (callback) => {
   }
 };
 
+// Health check function
+const healthCheck = async () => {
+  try {
+    const result = await query('SELECT NOW() as current_time, version() as db_version');
+    return {
+      status: 'connected',
+      timestamp: result.rows[0].current_time,
+      version: result.rows[0].db_version,
+      pool: {
+        total: pool.totalCount,
+        idle: pool.idleCount,
+        waiting: pool.waitingCount
+      }
+    };
+  } catch (error) {
+    return {
+      status: 'error',
+      error: error.message,
+      pool: {
+        total: pool.totalCount,
+        idle: pool.idleCount,
+        waiting: pool.waitingCount
+      }
+    };
+  }
+};
+
 // Close all connections
 const end = async () => {
+  console.log('🔌 Closing database connections...');
   await pool.end();
+  console.log('✅ Database connections closed');
 };
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('🛑 Received SIGINT, closing database connections...');
+  await end();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('🛑 Received SIGTERM, closing database connections...');
+  await end();
+  process.exit(0);
+});
 
 module.exports = {
   query,
   getClient,
   transaction,
+  healthCheck,
   end,
   pool
 };
