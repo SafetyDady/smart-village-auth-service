@@ -55,7 +55,8 @@ const corsOptions = {
       'http://localhost:5174',
       'http://localhost:5173',
       'https://smart-village-api-gateway-prod.workers.dev',
-      'https://smart-village-api-gateway-dev.workers.dev'
+      'https://smart-village-api-gateway-dev.workers.dev',
+      'https://rcunvfsi.manus.space'
     ];
     
     // Allow requests with no origin (mobile apps, etc.)
@@ -63,6 +64,11 @@ const corsOptions = {
     
     // Check for Vercel preview deployments
     if (origin.includes('vercel.app')) {
+      return callback(null, true);
+    }
+    
+    // Check for Manus deployments
+    if (origin.includes('manus.space')) {
       return callback(null, true);
     }
     
